@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema CLP Integral</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* --- TUS ESTILOS CSS ORIGINALES --- */
+
+.almacen-alert {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000;
+  background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  padding: 0; min-width: 400px; max-width: 500px; animation: slideIn 0.3s ease-out; display: none;
+}
+.almacen-alert.show { display: block; }
+@keyframes slideIn { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+.almacen-header { padding: 20px; border-radius: 12px 12px 0 0; color: white; position: relative; }
+.almacen-header.vacio { background: linear-gradient(135deg, #10b981, #059669); }
+.almacen-header.medio { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.almacen-header.lleno { background: linear-gradient(135deg, #ef4444, #dc2626); animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.9; } }
+
+.almacen-close { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.3); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+.almacen-close:hover { background: rgba(255,255,255,0.5); transform: scale(1.1); }
+
+.almacen-body { padding: 20px; }
+.almacen-image { width: 100%; height: 200px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; font-size: 80px; background: #f3f4f6; }
+
+.almacen-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px; }
+.control-btn { padding: 12px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; font-weight: 600; transition: all 0.3s; text-align: center; }
+.control-btn.vacio { background: #d1fae5; color: #065f46; border-color: #10b981; }
+.control-btn.medio { background: #fed7aa; color: #92400e; border-color: #f59e0b; }
+.control-btn.lleno { background: #fee2e2; color: #991b1b; border-color: #ef4444; }
+.control-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+.control-btn.active { transform: scale(1.05); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+
+.almacen-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: none; }
+.almacen-overlay.show { display: block; }
+
+/* Ocultar pestaña de guardia por defecto */
+.tab-button[data-tab="registro-guardia"] { display: none !important; }
+/* Mostrar solo cuando esté autorizado */
+.tab-button[data-tab="registro-guardia"].authorized { display: block !important; }
+
+body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+.header-bar { width: 100%; background-color: #073763; color: white; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); height: 72px; padding: 0 2rem; flex-shrink: 0; }
+.header-logo { height: 100%; max-height: 100%; width: auto; object-fit: contain; display: block; }
+.header-title { font-size: 1.75rem; font-weight: bold; flex-grow: 1; text-align: center; margin: 0 1rem; }
+
+.menu-toggle-btn { display: block; background: none; border: none; cursor: pointer; padding: 0.5rem; color: white; font-size: 2rem; line-height: 1; transition: transform 0.3s ease; z-index: 1001; }
+.menu-toggle-btn:hover { transform: scale(1.1); }
+
+.main-layout-container { display: flex; width: 100%; padding-top: 72px; height: calc(100vh - 72px); transition: all 0.3s ease; flex: 1; overflow: hidden; }
+
+.sidebar { position: fixed; top: 72px; left: 0; width: 250px; height: calc(100vh - 72px); background-color: #f8f8f8; box-shadow: 2px 0 8px rgba(0,0,0,0.1); padding-top: 1rem; display: flex; flex-direction: column; align-items: flex-start; overflow-y: auto; transform: translateX(-100%); transition: transform 0.3s ease; z-index: 999; }
+.sidebar.active { transform: translateX(0); }
+
+.sidebar-overlay { position: fixed; top: 72px; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; z-index: 998; }
+.sidebar-overlay.active { display: block; }
+
+.tabs-nav { width: 100%; display: flex; flex-direction: column; }
+.tab-button { width: 100%; padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: #666; cursor: pointer; transition: all 0.3s ease; border-bottom: 1px solid #e2e8f0; }
+.tab-button:hover { background-color: #e2e8f0; }
+.tab-button.active { background-color: #ffffff; color: #4CAF50; font-weight: 600; border-left: 4px solid #4CAF50; padding-left: 1.25rem; }
+
+.main-content-area { flex-grow: 1; display: flex; justify-content: center; align-items: stretch; padding: 0; overflow: hidden; margin-left: 0; width: 100%; transition: none; flex: 1; }
+.content-wrapper { width: 100%; max-width: none; height: 100%; background-color: #ffffff; border-radius: 0; box-shadow: none; overflow: hidden; display: flex; flex-direction: column; }
+
+.tab-content { height: 100%; flex: 1; overflow: auto; padding: 2rem; background-color: #ffffff; }
+.hidden { display: none; }
+
+#card-finalizar-pruebas, #card-enviar-otro-lab { display: none !important; }
+#dashboard.tab-content { padding: 0 1rem 1rem; }
+#lookerEmbedContainer { width: 100%; height: 100%; }
+
+.cache-indicator { background: linear-gradient(45deg, #e3f2fd, #f3e5f5); border: 1px solid #b39ddb; color: #5e35b1; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; margin-bottom: 0.5rem; }
+.loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f4f6; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.performance-badge { position: fixed; top: 80px; right: 20px; background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; z-index: 1001; opacity: 0.9; }
+.data-freshness { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem; }
+
+/* Tooltip styles */
+.tooltip-container { position: relative; display: inline-block; margin-left: 4px; }
+.help-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; background-color: #6b7280; color: white; border-radius: 50%; font-size: 10px; font-weight: bold; cursor: help; transition: background-color 0.2s ease; }
+.help-icon:hover { background-color: #4f46e5; }
+.tooltip { visibility: hidden; opacity: 0; position: absolute; z-index: 1000; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #1f2937; color: white; text-align: center; padding: 8px 12px; border-radius: 6px; font-size: 12px; white-space: nowrap; transition: opacity 0.3s, visibility 0.3s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+.tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #1f2937 transparent transparent transparent; }
+.tooltip-container:hover .tooltip { visibility: visible; opacity: 1; }
+
+@media (max-width: 768px) { .header-title { font-size: 1.25rem; } .header-logo { height: 80%; } .tab-content { padding: 1rem; } #dashboard.tab-content { padding: 0.5rem; } }
+
+/* ===== IMPRESIÓN SOLO DE #printContainer ===== */
+@media print {
+  body *:not(#printContainer):not(#printContainer *) { display: none !important; visibility: hidden !important; }
+  #printContainer { display: block !important; visibility: visible !important; position: fixed !important; inset: 0 !important; margin: 0 !important; padding: 20px !important; width: 100% !important; height: 100% !important; background: #ffffff !important; color: #000000 !important; overflow: visible !important; z-index: 999999 !important; }
+  #printContainer > div { page-break-inside: avoid !important; }
+  @page { size: A4 portrait; margin: 1cm; }
+}
+#printContainer { display: none; }
+
+.product-checkbox { width: 18px; height: 18px; margin-right: 8px; }
+.selected-row { background-color: #dbeafe !important; border-left: 4px solid #3b82f6; }
+.multi-select-mode .product-row { cursor: pointer; }
+.multi-select-mode .product-row:hover { background-color: #f0f9ff; }
+.product-mini-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; margin-bottom: 4px; font-size: 12px; }
+.product-mini-card.selected { background: #dbeafe; border-color: #3b82f6; }
+</style>
+</head>
+<body>
+<div id="performanceBadge" class="performance-badge hidden"> Optimizado</div>
+<div id="queueIndicator" class="performance-badge hidden" style="top: 110px; background: #3b82f6;">Cola: <span id="queueCount">0</span></div>
+  
+  <div class="header-bar">
+    <button id="menuToggle" class="menu-toggle-btn">&#9776;</button>
+    <img src="https://raw.githubusercontent.com/JESUSORTIZWHR/CLP-2/14b9c09c4e4a9e7a7dcafe5fd6dd9ba65cb9aadc/whirlpool%20logo%20blanco.png" alt="Whirlpool" class="header-logo" />
+    <div class="header-title">CETEC LIST PRODUCT</div>
+    <div></div>
+  </div>
+
+  <div class="main-layout-container">
+    <div class="sidebar" id="sidebar">
+      <div class="tabs-nav">
+        <button class="tab-button active" data-tab="dashboard">Inicio / Dashboard</button>
+        <button class="tab-button" data-tab="mis-productos">Mis Productos</button>
+        <button class="tab-button" data-tab="historial-clp">Historial de producto</button>
+        <button class="tab-button" data-tab="bandeja-lab">Bandeja del Laboratorio</button>
+        <button class="tab-button" data-tab="registro-guardia">Registro de Productos (Guardia)</button>
+        <button class="tab-button" data-tab="system-integrator">SYSTEM INTEGRATOR (APROBACION)</button>
+        <button class="tab-button" data-tab="almacen-general">Almacén General</button>
+      </div>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-content-area">
+      <div id="contentWrapper" class="content-wrapper">
+        
+        <div id="dashboard" class="tab-content">
+          <h2 id="lsHeading" class="text-2xl font-bold text-center text-gray-800 mb-4">Dashboard General del Sistema CLP</h2>
+          <div id="authMessage" class="text-center text-red-600 font-semibold mb-4 hidden">Acceso restringido. Inicia sesión con tu cuenta corporativa (@whirlpool.com).</div>
+          <div id="lookerEmbedContainer" class="hidden" style="width:100%;">
+            <div id="lookerResponsiveBox" style="position:relative; width:100%; height:80vh;">
+               <iframe id="lookerDashboardIframe" src="" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <div id="historial-clp" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">HISTORIAL DE PRODUCTO</h2>
+          <div id="histCacheStatus" class="data-freshness hidden"></div>
+          <div id="historialChartContainer" class="mt-8" style="width: 100%; height: 380px;"></div>
+          <div class="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input id="filtroClp" type="text" placeholder="Buscar CLP..." class="border rounded px-3 py-2 text-sm w-full" />
+            <input id="filtroTipoproyecto" type="text" placeholder="Buscar Proyecto..." class="border rounded px-3 py-2 text-sm w-full" />
+            <button id="btnFiltrar" class="bg-blue-600 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2"><span>Aplicar Filtros</span></button>
+            <button id="btnHistRefrescar" class="bg-green-600 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2"><span>Refrescar</span></button>
+          </div>
+          <div id="tablaHistorial" class="overflow-x-auto border rounded"></div>
+        </div>
+
+        <div id="mis-productos" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Mis Productos</h2>
+          <div class="flex items-center justify-between mb-4">
+            <div id="miCacheStatus" class="data-freshness"></div>
+            <div id="miPerformanceStats" class="text-xs text-gray-400"></div>
+          </div>
+          <div class="mb-4 grid grid-cols-1 md:grid-cols-8 gap-3">
+            <input id="miFiltroClp" type="text" class="border rounded px-3 py-2 text-sm w-full" placeholder="Filtrar por CLP..." />
+            <input id="miFiltroGlis" type="text" class="border rounded px-3 py-2 text-sm w-full" placeholder="Filtrar por GLIS..." />
+            <input id="miFiltroTipoproyecto" type="text" class="border rounded px-3 py-2 text-sm w-full" placeholder="Filtrar por Proyecto..." />
+            <select id="miFiltroMes" class="border rounded px-3 py-2 text-sm w-full"><option value="">Todos los meses</option></select>
+            <button id="miAplicarFiltros" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Filtrar</button>
+            <button id="miBtnRefrescar" class="bg-green-600 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2"><span>Refrescar</span></button>
+            <button id="miLimpiarFiltros" class="bg-gray-200 px-4 py-2 rounded w-full">Limpiar</button>
+          </div>
+          <div id="misProductosTabla" class="overflow-x-auto border rounded"></div>
+          <div id="miProductoEdicion" class="mt-8 border rounded p-4 hidden">
+             <h3 class="text-xl font-semibold mb-3">Editar producto</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input type="hidden" id="miRowNum" />
+                <div><label class="block text-sm text-gray-600 mb-1">CLP</label><input id="miClp" class="border rounded px-3 py-2 w-full bg-gray-100" readonly /></div>
+                <div><label class="block text-sm text-gray-600 mb-1">Producto</label><input id="miProducto" class="border rounded px-3 py-2 w-full" /></div>
+                </div>
+            <div class="mt-4 flex gap-3">
+              <button id="miGuardar" class="bg-green-600 text-white px-4 py-2 rounded">Guardar cambios</button>
+              <button id="miCancelar" class="bg-gray-200 px-4 py-2 rounded">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bandeja-lab" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Bandeja del Laboratorio</h2>
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+             <button class="px-4 py-2 rounded bg-indigo-600 text-white" data-blab-view="charts">📊 Resumen</button>
+             <button class="px-4 py-2 rounded bg-gray-200" data-blab-view="pending">Pendientes</button>
+             </div>
+          <div id="blab-charts"></div>
+          <div id="blab-tables" class="hidden"><div id="blabTableWrap" class="overflow-x-auto border rounded"></div></div>
+        </div>
+
+        <div id="registro-guardia" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Registro de Productos - Guardia de Seguridad</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white border rounded-lg p-6">
+              <h3 class="text-lg font-semibold mb-4">Datos del Producto</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div><label class="block text-sm font-medium text-gray-700 mb-1">Modelo *</label><input id="guardModelo" type="text" class="w-full border rounded-md px-3 py-2" /></div>
+                 <div><label class="block text-sm font-medium text-gray-700 mb-1">Serie *</label><input id="guardSerie" type="text" class="w-full border rounded-md px-3 py-2" /></div>
+                 </div>
+              <div class="mt-6 flex gap-3">
+                 <button id="guardGenerar" class="flex-1 bg-green-600 text-white py-3 px-6 rounded-md">🖨️ Generar QR</button>
+              </div>
+            </div>
+            <div class="bg-white border rounded-lg p-6">
+               <h3 class="text-lg font-semibold mb-4">Vista Previa</h3>
+               <div id="guardVistaPrevia" class="text-center text-gray-500 border-2 border-dashed p-8">QR Preview</div>
+            </div>
+          </div>
+           <div class="mt-8 bg-white border rounded-lg p-6">
+             <h3 class="text-lg font-semibold mb-4">Control de Capacidad</h3>
+             <div class="almacen-controls">
+               <button class="control-btn vacio"><div>📦</div><div>Vacío</div></button>
+               <button class="control-btn medio"><div>📦📦</div><div>Medio</div></button>
+               <button class="control-btn lleno"><div>📦📦📦</div><div>Lleno</div></button>
+             </div>
+           </div>
+        </div>
+
+        <div id="system-integrator" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Panel de System Integrator</h2>
+          <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+             <p class="text-sm text-blue-700">Revisa los productos terminados.</p>
+          </div>
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-3">⏳ Productos Pendientes de Revisión</h3>
+            <div id="siProductsTable" class="overflow-x-auto border rounded">
+               <div class="p-4 text-sm text-gray-500">Cargando...</div>
+            </div>
+          </div>
+
+          <div id="siBulkActionsContainer" class="hidden mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+             <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-purple-800"><span id="siSelectedCount">0</span> seleccionados</h3>
+                <button id="siClearSelection" class="text-purple-600 text-sm hover:underline">❌ Limpiar</button>
+             </div>
+             <div class="grid grid-cols-2 gap-3">
+                <button id="siBulkConservar" class="bg-green-600 text-white px-4 py-2 rounded">✅ CONSERVAR</button>
+                <button id="siBulkScrap" class="bg-red-600 text-white px-4 py-2 rounded">🗑️ APROBAR SCRAP</button>
+             </div>
+             <div class="mt-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones:</label>
+                <textarea id="siBulkObservaciones" class="w-full px-3 py-2 border rounded" rows="2"></textarea>
+             </div>
+          </div>
+        </div>
+
+        <div id="almacen-general" class="tab-content hidden">
+          <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Almacén General</h2>
+          <div class="mb-4 flex items-center gap-3">
+             <input id="almacenFilterCLP" type="text" placeholder="Filtrar por CLP..." class="border rounded px-3 py-2 text-sm flex-1">
+             <button id="almacenBtnRefresh" class="px-4 py-2 rounded bg-blue-600 text-white">🔄 Refrescar</button>
+          </div>
+          <div id="almacenTable" class="overflow-x-auto border rounded"><div class="p-4 text-sm text-gray-500">Cargando productos...</div></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay-espera" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-xl p-6 shadow-xl text-center max-w-sm">
+      <h2 class="text-xl font-semibold mb-2">Procesando…</h2>
+      <div class="mt-4 mx-auto h-10 w-10 border-4 border-t-transparent border-blue-600 rounded-full animate-spin"></div>
+    </div>
+  </div>
+
+  <div id="almacenOverlay" class="almacen-overlay"></div>
+
+  <div id="almacenAlert" class="almacen-alert">
+    <div id="almacenHeader" class="almacen-header medio">
+      <button onclick="cerrarAlarmAlmacen()" class="almacen-close">×</button>
+      <h2 style="margin: 0; font-size: 24px; font-weight: bold;">⚠️ Estado del Almacén</h2>
+    </div>
+    <div class="almacen-body">
+      <div id="almacenImage" class="almacen-image">📦</div>
+      <div id="almacenMessage" style="text-align: center; color: #4b5563; margin-bottom: 10px;">El almacén está a media capacidad.</div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button onclick="cerrarAlarmAlmacen()" style="background: #3b82f6; color: white; padding: 10px 30px; border: none; border-radius: 8px; cursor: pointer;">Entendido</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="printContainer"></div>
+
+  <script src="app.js"></script>
+
+</body>
+</html>
